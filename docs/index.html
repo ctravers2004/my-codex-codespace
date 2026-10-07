@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Counter</title>
+  <meta name="description" content="A simple counter with increase, decrease, and reset controls.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M9 16h14M16 9v14' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; display: grid; place-items: center; padding: 1.5rem; background: #eef2f8; color: #14213d; font-family: system-ui, sans-serif; }
+    main { width: min(100%, 29rem); padding: 2.5rem 2rem; text-align: center; background: #fff; border: 1px solid #dce3ef; border-radius: 1.75rem; box-shadow: 0 20px 70px #14213d0c; }
+    h1 { font-size: 1.125rem; font-weight: 600; margin: 0; color: #52617a; }
+    output { display: block; padding: 2.25rem 0; font-size: clamp(3rem, 15vw, 6rem); font-weight: 650; line-height: 1.2; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    button { min-height: 3.75rem; border: 0; border-radius: 1rem; cursor: pointer; font: inherit; font-weight: 600; transition: background .15s, transform .15s; touch-action: manipulation; }
+    .step { font-size: 2rem; background: #edf2fd; color: #2455bc; }
+    .plus { color: white; background: #2563eb; }
+    .step:hover { background: #dde7fb; }
+    .plus:hover { background: #1d4ed8; }
+    button:active { transform: scale(.97); }
+    button:focus-visible { outline: 3px solid #153d9a; outline-offset: 4px; }
+    .reset { margin-top: 1.25rem; padding: .75rem 1.5rem; color: #52617a; background: transparent; min-height: 3rem; }
+    .reset:hover { background: #f1f4f9; }
+    @media (max-width: 360px) { main { padding: 2rem 1rem; } }
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+  </style>
+</head>
+<body>
+  <main aria-labelledby="title">
+    <h1 id="title">Counter</h1>
+    <output id="count" aria-label="Current count" aria-live="polite" aria-atomic="true">0</output>
+    <div class="controls">
+      <button type="button" class="step" id="decrease" aria-label="Decrease count">−</button>
+      <button type="button" class="step plus" id="increase" aria-label="Increase count">+</button>
+    </div>
+    <button type="button" class="reset" id="reset">Reset</button>
+  </main>
+  <script>
+    let count = 0;
+    const output = document.getElementById('count');
+    function updateCount(action) {
+      const next = action === 'reset' ? 0 : count + (action === 'increase' ? 1 : -1);
+      if (!Number.isSafeInteger(next)) throw new Error('Counter limit reached');
+      count = next;
+      output.textContent = String(count);
+      return { count };
+    }
+    for (const action of ['decrease', 'increase', 'reset']) {
+      document.getElementById(action).addEventListener('click', () => updateCount(action));
+    }
+    if (document.modelContext?.registerTool) {
+      const lifecycle = new AbortController();
+      window.addEventListener('pagehide', () => lifecycle.abort(), { once: true });
+      try {
+        Promise.resolve(document.modelContext.registerTool({
+          name: 'update_counter', title: 'Update counter',
+          description: 'Increase or decrease the visible counter by one, or reset it to zero.',
+          inputSchema: { type: 'object', properties: { action: { type: 'string', enum: ['increase', 'decrease', 'reset'] } }, required: ['action'], additionalProperties: false },
+          annotations: { readOnlyHint: false, untrustedContentHint: false },
+          execute(input) {
+            if (!input || Object.keys(input).length !== 1 || !['increase', 'decrease', 'reset'].includes(input.action)) throw new Error('Choose increase, decrease, or reset');
+            return updateCount(input.action);
+          }
+        }, { signal: lifecycle.signal })).catch(console.error);
+      } catch (error) { console.error(error); }
+    }
+  </script>
+</body>
+</html>
